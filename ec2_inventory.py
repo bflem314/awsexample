@@ -7,9 +7,7 @@ ALLOWED_REGIONS = ["us-west-2", "us-east-1"]
 # Only run against these accounts. Empty list means check all accounts.
 ACCOUNT_FILTER = []
 SKIP_ACCOUNT = []  # Any problem account? Add it here to skip it.
-# ListAWSAccountsFromOrganization
 ORG_ACCOUNT_ROLE = "ListAWSAccountsFromOrganization"
-# ReadOnlyCrossAccountAccess
 CROSS_ACCOUNT_READ_ROLE = "ReadOnlyCrossAccountAccess"
 COLS = []
 
@@ -56,7 +54,7 @@ def main():
                     'OperatingSystem': "NA"
                 }
 
-            # Complete the picture in our inventory for all instances that have SSM enabled.
+            # Fill in the gaps with ssm data if it is available
             ssm_client = get_aws_client(
                 client_type="ssm", account=account['Id'], region=region, rolename=CROSS_ACCOUNT_READ_ROLE)
 
