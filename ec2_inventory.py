@@ -1,17 +1,15 @@
-from sqlite3 import dbapi2
-import ipdb
 import boto3
 import csv
 from botocore.exceptions import ClientError
 #
-ORG_ACCOUNT = ''
+ORG_ACCOUNT = '383203809564'
 ALLOWED_REGIONS = ["us-west-2"]
-ACCOUNT_FILTER = [""]
+ACCOUNT_FILTER = ["708429951659"]
 SKIP_ACCOUNT = [""]
 # ListAWSAccountsFromOrganization
-ORG_ACCOUNT_ROLE = "OrganizationAccountAccessRole"
+ORG_ACCOUNT_ROLE = "ListOrgRole"
 # ReadOnlyCrossAccountAccess
-CROSS_ACCOUNT_READ_ROLE = "OrganizationAccountAccessRole"
+CROSS_ACCOUNT_READ_ROLE = "ReadInventoryRole"
 COLS = []
 
 
