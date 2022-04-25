@@ -18,9 +18,8 @@ phases:
   build:
     commands:
       - echo BUILD started on `date`
-      - echo `pwd`
+      - python ec2_inventory.py
       - echo BUILD completed on `date`
-      - echo "hiho" > ec2_inventory.csv
 artifacts:
   files:
-    - "**/*"
+    - "ec2_inventory.csv"
