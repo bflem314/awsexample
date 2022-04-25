@@ -2,14 +2,15 @@ import boto3
 import csv
 from botocore.exceptions import ClientError
 #
-ORG_ACCOUNT = '383203809564'
+ORG_ACCOUNT = 'YOUR ORG ACCOUNT'
 ALLOWED_REGIONS = ["us-west-2", "us-east-1"]
-ACCOUNT_FILTER = ["708429951659"]
-SKIP_ACCOUNT = [""]
+# Only run against these accounts. Empty list means check all accounts.
+ACCOUNT_FILTER = []
+SKIP_ACCOUNT = []  # Any problem account? Add it here to skip it.
 # ListAWSAccountsFromOrganization
-ORG_ACCOUNT_ROLE = "ListOrgRole"
+ORG_ACCOUNT_ROLE = "ListAWSAccountsFromOrganization"
 # ReadOnlyCrossAccountAccess
-CROSS_ACCOUNT_READ_ROLE = "ReadInventoryRole"
+CROSS_ACCOUNT_READ_ROLE = "ReadOnlyCrossAccountAccess"
 COLS = []
 
 
