@@ -1,0 +1,614 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Metadata:
+  Generator: "former2"
+Description: ""
+Parameters:
+  dbsg:
+    Type: "String"
+    Default: "DB-Tier-SG"
+
+  appsg:
+    Type: "String"
+    Default: "App-Tier-SG"
+
+  websg:
+    Type: "String"
+    Default: "Web-Tier-SG"
+
+  vpcname:
+    Type: "String"
+    Default: "myvpc1"
+
+  bucketname:
+    Type: "String"
+    Default: "s3static314159"
+
+  domainname:
+    Type: "String"
+    Default: "applejacks.com"
+
+  webami:
+    Type: "String"
+    Default: "ami-02b92c281a4d3dc79"
+
+  webinstancetype:
+    Type: "String"
+    Default: "t1.micro"
+
+  appami:
+    Type: "String"
+    Default: "ami-02b92c281a4d3dc79"
+
+  appinstancetype:
+    Type: "String"
+    Default: "t1.micro"
+
+Resources:
+  EC2VPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      EnableDnsSupport: true
+      EnableDnsHostnames: false
+      InstanceTenancy: "default"
+      Tags:
+        - Key: "Name"
+          Value: { "Ref": "vpcname" }
+
+  WebSubnet1a:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !GetAtt AppSubnet1a.AvailabilityZone
+      CidrBlock: "10.0.0.0/24"
+      VpcId: !Ref EC2VPC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: "Web Subnet 1"
+
+  WebSubnet2b:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Sub "${AWS::Region}b"
+      CidrBlock: "10.0.1.0/24"
+      VpcId: !Ref EC2VPC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: "Web Subnet 2"
+
+  AppSubnet1a:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Sub "${AWS::Region}a"
+      CidrBlock: "10.0.2.0/24"
+      VpcId: !Ref EC2VPC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: "App Subnet 1"
+
+  AppSubnet2b:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !GetAtt WebSubnet2b.AvailabilityZone
+      CidrBlock: "10.0.3.0/24"
+      VpcId: !Ref EC2VPC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: "App Subnet 2"
+
+  DBSubnet1a:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !GetAtt AppSubnet1a.AvailabilityZone
+      CidrBlock: "10.0.4.0/24"
+      VpcId: !Ref EC2VPC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: "DB Subnet 1"
+
+  DBSubnet2b:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !GetAtt WebSubnet2b.AvailabilityZone
+      CidrBlock: "10.0.5.0/24"
+      VpcId: !Ref EC2VPC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: "DB Subnet 2"
+
+  EC2RouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref EC2VPC
+
+  WebTierSG:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Web-Tier-SG"
+      GroupName: "Web-Tier-SG"
+      VpcId: !Ref EC2VPC
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "-1"
+
+  AppTierSG:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "App-Tier-SG"
+      GroupName: { "Ref": "appsg" }
+      VpcId: !Ref EC2VPC
+
+  DBTierSG:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "DB-Tier-SG"
+      GroupName: { "Ref": "dbsg" }
+      VpcId: !Ref EC2VPC
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "-1"
+
+  EC2VPCDHCPOptionsAssociation:
+    Type: "AWS::EC2::VPCDHCPOptionsAssociation"
+    Properties:
+      DhcpOptionsId: !Ref EC2DHCPOptions
+      VpcId: !Ref EC2VPC
+
+  EC2VPCGatewayAttachment:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      InternetGatewayId: !Ref EC2InternetGateway
+      VpcId: !Ref EC2VPC
+
+  EC2DHCPOptions:
+    Type: "AWS::EC2::DHCPOptions"
+    Properties:
+      DomainName: !Sub "${AWS::Region}.compute.internal"
+
+  EC2InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: "Name"
+          Value: "igw"
+
+  ## Autoscaling Group #1
+  WebTierTG:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: "/"
+      Port: 80
+      Protocol: "HTTP"
+      HealthCheckPort: "80"
+      HealthCheckProtocol: "HTTP"
+      HealthCheckTimeoutSeconds: 5
+      UnhealthyThresholdCount: 5
+      TargetType: "instance"
+      Matcher:
+        HttpCode: "200"
+      HealthyThresholdCount: 5
+      VpcId: !Ref EC2VPC
+      Name: "Web-Tier-TG"
+      HealthCheckEnabled: true
+      TargetGroupAttributes:
+        - Key: "stickiness.enabled"
+          Value: "false"
+        - Key: "deregistration_delay.timeout_seconds"
+          Value: "300"
+        - Key: "stickiness.app_cookie.cookie_name"
+          Value: ""
+        - Key: "stickiness.type"
+          Value: "lb_cookie"
+        - Key: "stickiness.lb_cookie.duration_seconds"
+          Value: "86400"
+        - Key: "slow_start.duration_seconds"
+          Value: "0"
+        - Key: "stickiness.app_cookie.duration_seconds"
+          Value: "86400"
+        - Key: "load_balancing.algorithm.type"
+          Value: "round_robin"
+
+  WebTierASG:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    Properties:
+      AutoScalingGroupName: "Web-Tier-ASG"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WebTierLT
+        Version: !GetAtt WebTierLT.LatestVersionNumber
+      MinSize: 0
+      MaxSize: 0
+      DesiredCapacity: 0
+      Cooldown: 300
+      TargetGroupARNs:
+        - !Ref WebTierTG
+      HealthCheckType: "EC2"
+      HealthCheckGracePeriod: 300
+      VPCZoneIdentifier:
+        - !Ref WebSubnet1a
+        - !Ref WebSubnet2b
+      TerminationPolicies:
+        - "Default"
+      ServiceLinkedRoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+      NewInstancesProtectedFromScaleIn: false
+
+  WebTierASGPolicy:
+    Type: "AWS::AutoScaling::ScalingPolicy"
+    Properties:
+      AutoScalingGroupName: !Ref WebTierASG
+      PolicyType: "TargetTrackingScaling"
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: "ASGAverageCPUUtilization"
+        TargetValue: 50
+        DisableScaleIn: false
+
+  WebTierLB:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Name: "Web-Tier-LB"
+      Scheme: "internet-facing"
+      Type: "application"
+      Subnets:
+        - !Ref WebSubnet1a
+        - !Ref WebSubnet2b
+      SecurityGroups:
+        - !Ref WebTierSG
+      IpAddressType: "ipv4"
+      LoadBalancerAttributes:
+        - Key: "access_logs.s3.enabled"
+          Value: "false"
+        - Key: "idle_timeout.timeout_seconds"
+          Value: "60"
+        - Key: "deletion_protection.enabled"
+          Value: "false"
+        - Key: "routing.http2.enabled"
+          Value: "true"
+        - Key: "routing.http.drop_invalid_header_fields.enabled"
+          Value: "false"
+        - Key: "routing.http.xff_client_port.enabled"
+          Value: "false"
+        - Key: "routing.http.desync_mitigation_mode"
+          Value: "defensive"
+        - Key: "waf.fail_open.enabled"
+          Value: "false"
+        - Key: "routing.http.x_amzn_tls_version_and_cipher_suite.enabled"
+          Value: "false"
+
+  WebTierListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      LoadBalancerArn: !Ref WebTierLB
+      Port: 80
+      Protocol: "HTTP"
+      DefaultActions:
+        - TargetGroupArn: !Ref WebTierTG
+          Type: "forward"
+
+  WebTierLT:
+    Type: "AWS::EC2::LaunchTemplate"
+    Properties:
+      LaunchTemplateName: "Web-Tier-LT"
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - DeviceName: "/dev/xvda"
+            Ebs:
+              Encrypted: true
+              DeleteOnTermination: true
+              VolumeSize: 8
+              VolumeType: "gp2"
+        SecurityGroupIds:
+          - !Ref WebTierSG
+        DisableApiTermination: true
+        ImageId: { "Ref": "webami" }
+        InstanceType: { "Ref": "webinstancetype" }
+  ####################################################################################
+  # App-Tier
+  ####################################################################################
+  AppTierTG:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: "/"
+      Port: 80
+      Protocol: "HTTP"
+      HealthCheckPort: "80"
+      HealthCheckProtocol: "HTTP"
+      HealthCheckTimeoutSeconds: 5
+      UnhealthyThresholdCount: 5
+      TargetType: "instance"
+      Matcher:
+        HttpCode: "200"
+      HealthyThresholdCount: 5
+      VpcId: !Ref EC2VPC
+      Name: "App-Tier-TG"
+      HealthCheckEnabled: true
+      TargetGroupAttributes:
+        - Key: "stickiness.enabled"
+          Value: "false"
+        - Key: "deregistration_delay.timeout_seconds"
+          Value: "300"
+        - Key: "stickiness.app_cookie.cookie_name"
+          Value: ""
+        - Key: "stickiness.type"
+          Value: "lb_cookie"
+        - Key: "stickiness.lb_cookie.duration_seconds"
+          Value: "86400"
+        - Key: "slow_start.duration_seconds"
+          Value: "0"
+        - Key: "stickiness.app_cookie.duration_seconds"
+          Value: "86400"
+        - Key: "load_balancing.algorithm.type"
+          Value: "round_robin"
+
+  AppTierASG:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    Properties:
+      AutoScalingGroupName: "App-Tier-ASG"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AppTierLT
+        Version: !GetAtt AppTierLT.LatestVersionNumber
+      MinSize: 0
+      MaxSize: 0
+      DesiredCapacity: 0
+      Cooldown: 300
+      TargetGroupARNs:
+        - !Ref AppTierTG
+      HealthCheckType: "EC2"
+      HealthCheckGracePeriod: 300
+      VPCZoneIdentifier:
+        - !Ref AppSubnet1a
+        - !Ref AppSubnet2b
+      TerminationPolicies:
+        - "Default"
+      ServiceLinkedRoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+      NewInstancesProtectedFromScaleIn: false
+
+  AppTierLB:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Name: "App-Tier-LB"
+      Scheme: "internal"
+      Type: "application"
+      Subnets:
+        - !Ref AppSubnet1a
+        - !Ref AppSubnet2b
+      SecurityGroups:
+        - !Ref AppTierSG
+      IpAddressType: "ipv4"
+      LoadBalancerAttributes:
+        - Key: "access_logs.s3.enabled"
+          Value: "false"
+        - Key: "idle_timeout.timeout_seconds"
+          Value: "60"
+        - Key: "deletion_protection.enabled"
+          Value: "false"
+        - Key: "routing.http2.enabled"
+          Value: "true"
+        - Key: "routing.http.drop_invalid_header_fields.enabled"
+          Value: "false"
+        - Key: "routing.http.xff_client_port.enabled"
+          Value: "false"
+        - Key: "routing.http.desync_mitigation_mode"
+          Value: "defensive"
+        - Key: "waf.fail_open.enabled"
+          Value: "false"
+        - Key: "routing.http.x_amzn_tls_version_and_cipher_suite.enabled"
+          Value: "false"
+
+  AppTierListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      LoadBalancerArn: !Ref AppTierLB
+      Port: 80
+      Protocol: "HTTP"
+      DefaultActions:
+        - TargetGroupArn: !Ref AppTierTG
+          Type: "forward"
+
+  AppTierLT:
+    Type: "AWS::EC2::LaunchTemplate"
+    Properties:
+      LaunchTemplateName: "App-Tier-LT"
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - DeviceName: "/dev/xvda"
+            Ebs:
+              Encrypted: true
+              DeleteOnTermination: true
+              VolumeSize: 8
+              VolumeType: "gp2"
+        SecurityGroupIds:
+          - !Ref AppTierSG
+        DisableApiTermination: true
+        ImageId: { "Ref": "appami" }
+        InstanceType: { "Ref": "appinstancetype" }
+
+  ####################################################################################
+  # CloudFront
+  ####################################################################################
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: { "Ref": "bucketname" }
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
+            BucketKeyEnabled: false
+
+  CloudFrontDistribution:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        Origins:
+          - ConnectionAttempts: 3
+            ConnectionTimeout: 10
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginKeepaliveTimeout: 5
+              OriginProtocolPolicy: "http-only"
+              OriginReadTimeout: 30
+              OriginSSLProtocols:
+                - "TLSv1"
+                - "TLSv1.1"
+                - "TLSv1.2"
+            DomainName: !GetAtt WebTierLB.DNSName
+            Id: !Ref "WebTierLB"
+            OriginPath: ""
+          - ConnectionAttempts: 3
+            ConnectionTimeout: 10
+            DomainName: !Sub "${S3Bucket}.s3.${AWS::Region}.amazonaws.com"
+            Id: !Sub "${S3Bucket}.s3.${AWS::Region}.amazonaws.com"
+            OriginPath: "/static"
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontCloudFrontOriginAccessIdentity}"
+        OriginGroups:
+          Quantity: 0
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - "HEAD"
+            - "GET"
+          CachedMethods:
+            - "HEAD"
+            - "GET"
+          Compress: true
+          CachePolicyId: "658327ea-f89d-4fab-a63d-7e88639e58f6"
+          SmoothStreaming: false
+          TargetOriginId: !Sub "${S3Bucket}.s3.${AWS::Region}.amazonaws.com"
+          ViewerProtocolPolicy: "allow-all"
+        Comment: ""
+        PriceClass: "PriceClass_100"
+        Enabled: true
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: "none"
+        HttpVersion: "http2"
+        DefaultRootObject: ""
+        IPV6Enabled: true
+
+  CloudFrontCloudFrontOriginAccessIdentity:
+    Type: "AWS::CloudFront::CloudFrontOriginAccessIdentity"
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "${S3Bucket}oai"
+
+  S3BucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: "2008-10-17"
+        Id: "PolicyForCloudFrontPrivateContent"
+        Statement:
+          - Sid: "1"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontCloudFrontOriginAccessIdentity}"
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+
+  #########
+  # DB Tier
+  #########
+  RDSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: key-rds
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Join
+                - ""
+                - - "arn:aws:iam::"
+                  - !Ref "AWS::AccountId"
+                  - ":root"
+            Action: "kms:*"
+            Resource: "*"
+  rdsAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/rds
+      TargetKeyId:
+        Ref: RDSKey
+
+  RDSDBSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupDescription: "DB Tier Subnet Group"
+      DBSubnetGroupName: "DBSubnetGroup"
+      SubnetIds:
+        - !Ref DBSubnet1a
+        - !Ref DBSubnet2b
+
+  RDSDBInstance:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      DBInstanceIdentifier: "RDSPostGres"
+      AllocatedStorage: 20
+      DBInstanceClass: "db.m6g.large"
+      Engine: "postgres"
+      MasterUsername: "postgres"
+      MasterUserPassword: "REPLACEME"
+      PreferredBackupWindow: "06:06-06:36"
+      BackupRetentionPeriod: 7
+      AvailabilityZone: !GetAtt DBSubnet1a.AvailabilityZone
+      PreferredMaintenanceWindow: "fri:13:25-fri:13:55"
+      MultiAZ: false
+      EngineVersion: "13.4"
+      AutoMinorVersionUpgrade: true
+      LicenseModel: "postgresql-license"
+      PubliclyAccessible: false
+      StorageType: "gp2"
+      Port: 5432
+      StorageEncrypted: true
+      KmsKeyId: !Ref RDSKey
+      CopyTagsToSnapshot: true
+      MonitoringInterval: 60
+      EnableIAMDatabaseAuthentication: false
+      EnablePerformanceInsights: true
+      PerformanceInsightsKMSKeyId: !Ref RDSKey
+      PerformanceInsightsRetentionPeriod: 7
+      DeletionProtection: false
+      DBSubnetGroupName: "DBSubnetGroup"
+      VPCSecurityGroups:
+        - !Ref DBTierSG
+      MaxAllocatedStorage: 1000
+      DBParameterGroupName: "default.postgres13"
+      OptionGroupName: "default:postgres-13"
+      MonitoringRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/rds-monitoring-role"
+      CACertificateIdentifier: "rds-ca-2019"
+
+  IAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: "rds-monitoring-role"
+      AssumeRolePolicyDocument: '{"Version":"2012-10-17","Statement":[{"Sid":"","Effect":"Allow","Principal":{"Service":"monitoring.rds.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+      MaxSessionDuration: 3600
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+
+  DNS:
+    Type: "AWS::Route53::HostedZone"
+    Properties:
+      Name: !Sub "${domainname}"
+
+  Route53RecordSet4:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      Name: !Sub "mycname.${domainname}"
+      Type: "CNAME"
+      TTL: 300
+      ResourceRecords:
+        - !GetAtt CloudFrontDistribution.DomainName
+      HostedZoneId: !GetAtt DNS.Id
