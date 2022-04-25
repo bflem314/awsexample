@@ -3,7 +3,7 @@ import csv
 from botocore.exceptions import ClientError
 #
 ORG_ACCOUNT = '383203809564'
-ALLOWED_REGIONS = ["us-west-2"]
+ALLOWED_REGIONS = ["us-west-2", "us-east-1"]
 ACCOUNT_FILTER = ["708429951659"]
 SKIP_ACCOUNT = [""]
 # ListAWSAccountsFromOrganization
