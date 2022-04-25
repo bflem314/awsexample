@@ -48,7 +48,6 @@ def main():
                     'AccountName': account['Name'],
                     'AccountId': account['Id'],
                     'InstanceTagName': get_instance_tag(ec2_instance, "Name"),
-                    'InstanceId': ec2_instance['InstanceId'],
                     'AvailabilityZone': ec2_instance['Placement']['AvailabilityZone'],
                     'PrivateIpAddress': ec2_instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['PrivateIpAddress'],
                     'PublicIpAddress': public_ip,
@@ -124,7 +123,7 @@ def get_regions(client):
 
 def write_csv(filename, ec2_inventory):
     # Set First Colum for Instance ID
-    COLS.append('ResourceId')
+    COLS.append('InstanceId')
 
     # Add Keys to be Columnns
     for key in ec2_inventory:
