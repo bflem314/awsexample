@@ -1,0 +1,18 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      python: 3.8
+  pre_build:
+    commands:
+      - pip install -r requirements.txt
+      - echo INSTALL completed on `date`
+  build:
+    commands:
+      - echo BUILD started on `date`
+      - echo `pwd`
+      - echo BUILD completed on `date`
+      - echo "hiho" > ec2_inventory.csv
+artifacts:
+  files:
+    - "**/*"
