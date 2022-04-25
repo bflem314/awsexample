@@ -6,9 +6,9 @@ ORG_ACCOUNT = 'YOUR ORG ACCOUNT'
 # Leave empty to do all regions
 ALLOWED_REGIONS = ["us-west-2", "us-east-1"]
 # Leave empty to do all accounts. Add accounts to only do those.
-ACCOUNT_FILTER = ["708429951659"]
+ACCOUNT_FILTER = []
 # Any account giving an issue, can skip it for testing.
-SKIP_ACCOUNT = [""]
+SKIP_ACCOUNT = []
 # ListAWSAccountsFromOrganization
 ORG_ACCOUNT_ROLE = "ListAWSAccountsFromOrganization"
 # ReadOnlyCrossAccountAccess
