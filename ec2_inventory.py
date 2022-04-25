@@ -221,13 +221,8 @@ def get_ssm_instances(client):
         for entity in inventory['Entities']:
             try:
                 instance = entity['Data']['AWS:InstanceInformation']['Content'][0]
-
-                # Skip Terminated Instances
-                if instance.get('InstanceStatus') == 'Stopped' or instance.get('InstanceStatus') == 'Running':
-                    instances.append(
-                        entity['Data']['AWS:InstanceInformation']['Content'])
-                else:
-                    print("Skipping... %s" % instance.get('InstanceId'))
+                instances.append(
+                    entity['Data']['AWS:InstanceInformation']['Content'])
 
             except (KeyError, ValueError):
                 continue
