@@ -145,9 +145,7 @@ def write_csv(filename, ec2_inventory):
             listof_columns = ec2_inventory[data]
 
             # Write Data to CSV
-            itercols = iter(COLS)
-            next(itercols)
-            for col in itercols:
+            for col in COLS[1:]: # Skip the first column InstanceId. It was just added.
                 if col in listof_columns:
                     row.append(listof_columns[col])
                 else:
